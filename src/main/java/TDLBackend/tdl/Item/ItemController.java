@@ -1,88 +1,87 @@
 package TDLBackend.tdl.Item;
 
-import TDLBackend.tdl.Store.Store;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.handler.annotation.SendTo;
-import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
-import java.sql.Timestamp;
-import java.util.List;
-import jakarta.persistence.Entity;
-import jakarta.persistence.*;
-import TDLBackend.tdl.Item.ItemRepository;
+import com.corundumstudio.socketio.AckRequest;
+import com.corundumstudio.socketio.SocketIOClient;
+import com.corundumstudio.socketio.SocketIONamespace;
+import com.corundumstudio.socketio.listener.DataListener;
 
+import TDLBackend.tdl.Store.StoreController;
 import org.springframework.beans.factory.annotation.Autowired;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
+
 import java.util.*;
-import java.util.stream.Collectors;
+import org.springframework.stereotype.Component;
 
-
-@RestController
-@RequestMapping("/item")
+@Component
 public class ItemController {
-    @PersistenceContext
-    EntityManager entityManager;
 
     @Autowired
     ItemRepository itemRepository;
-    
-   
-    @PostMapping("/add")
-    public ResponseEntity addItem(@RequestParam("label") String label, @RequestParam("checked") boolean checked, @RequestParam("storeid") Store storeid){
 
-        try {
-            itemRepository.save(new Item(label,checked,storeid));
-        }
-        catch(Exception e) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to to save items");
-        }
-        System.out.println("pls");
-        
-        
-        
-        return new ResponseEntity<>(HttpStatus.OK);
+    private static String ITEM_EVENT = "item/";
+    private static String ITEM_ADD_EVENT = ITEM_EVENT + "add";
+    private static String ITEM_DELETE_EVENT = ITEM_EVENT + "delete";
+    private static String ITEM_UPDATE_CHECKED_EVENT = ITEM_EVENT + "updateCheck";
+
+    @Autowired
+    private StoreController storeController;
+
+	ItemController(StoreController storeController){
+        this.storeController = storeController;
+		SocketIONamespace socketNamespaceStoreController = this.storeController.getStoreNamespace();
+
+        // Add event listeners
+        socketNamespaceStoreController.addEventListener(ITEM_ADD_EVENT, Item.class, addItem);
+        socketNamespaceStoreController.addEventListener(ITEM_DELETE_EVENT, (Class) List.class, deleteItems);
+        socketNamespaceStoreController.addEventListener(ITEM_UPDATE_CHECKED_EVENT, (Class) HashMap.class, updatecheckedValue);
     }
 
-    @GetMapping("/fetch")
-    public ResponseEntity<List<Item>> fetchItems(){
-        List<Item> items;
-    
-        try {
-            items = entityManager.createQuery("from item", Item.class).getResultList();
-            System.out.println(items);
-        }
-        catch(Exception e) {
-            System.out.println(e);
+    private DataListener<Item> addItem = new DataListener<Item>() {
+        @Override
+        public void onData(SocketIOClient client, Item item, AckRequest acknowledge) throws Exception 
+        {
 
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to save items");
+            try 
+            {
+                itemRepository.addItem(item);
+                storeController.broadcastStoreFetchEvent();
+            }
+            catch(Exception e) 
+            {
+                throw new Exception("Failed to add item");
+            }
         }
-        return new ResponseEntity<>(items,HttpStatus.OK);
-    }
+    };
 
-    @PostMapping("delete")
-    public ResponseEntity deleteItems(@RequestParam("itemIDs") List<Integer> itemIDs){
-        try {
-            itemRepository.deleteUsersWithIds(itemIDs);
+    private DataListener<List<Integer>> deleteItems = new DataListener<List<Integer>>() {
+        @Override
+        public void onData(SocketIOClient client, List<Integer> itemIDs, AckRequest acknowledge) throws Exception 
+        {
+            try {
+                itemRepository.deleteitemswithids(itemIDs);
+                storeController.broadcastStoreFetchEvent();
+            }
+            catch(Exception e) 
+            {
+                throw new Exception("Failed to delete items");
+            }
         }
-        catch(Exception e) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to delete items");
+    };
+
+    private DataListener<HashMap<String, Boolean>> updatecheckedValue = new DataListener<HashMap<String, Boolean>>() {
+        @Override
+        public void onData(SocketIOClient client, HashMap<String, Boolean> id_checked_map, AckRequest acknowledge) throws Exception 
+        {
+            try {
+                for (Map.Entry<String, Boolean> entry : id_checked_map.entrySet()) {
+                    itemRepository.updatecheckedValue(Integer.valueOf(entry.getKey()), entry.getValue());
+                }
+                storeController.broadcastStoreFetchEvent();
+            }
+            catch(Exception e) 
+            {
+                throw new Exception("Failed to update checks");
+            }
         }
-        return new ResponseEntity<>(HttpStatus.OK);
-    }
-    
-    @PostMapping("update")
-    public ResponseEntity updatecheckedValue(@RequestParam("id") int id, @RequestParam("checked") boolean checked){
-        try {
-            itemRepository.updatecheckedValue(id,checked);
-        }
-        catch(Exception e) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to delete items");
-        }
-        return new ResponseEntity<>(HttpStatus.OK);
-    }
+    };
+
 }

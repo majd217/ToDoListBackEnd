@@ -1,42 +1,67 @@
 package TDLBackend.tdl.Store;
 
-import TDLBackend.tdl.Item.Item;
-import TDLBackend.tdl.Item.ItemRepository;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
+import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
+import com.corundumstudio.socketio.SocketIOClient;
+import com.corundumstudio.socketio.SocketIONamespace;
+import com.corundumstudio.socketio.SocketIOServer;
+import com.corundumstudio.socketio.listener.ConnectListener;
+
 import java.util.List;
 
-
-@RestController
-@RequestMapping("/fetch")
+@Component
 public class StoreController {
 	
-	
-	@PersistenceContext
-	EntityManager entityManager;
+	private static String STORE_CONTROLLER = "/store";
+	private static String STORE_FETCH_EVENT = "fetch";
 	
 	@Autowired
 	StoreRepository storeRepository;
-	
-	@GetMapping("/getstores")
-	public ResponseEntity getStores(){
-		List<Store> stores = new ArrayList<>();
-		try {
-			stores = storeRepository.getStores();
-			
-		}  catch(Exception e) {
-			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to to fetch stores");
-		}
-		
-		return new ResponseEntity<>(stores,HttpStatus.OK);
+
+	@Autowired
+    private SocketIOServer socketServer;
+
+	StoreController(SocketIOServer socketServer){
+        this.socketServer = socketServer;
+		SocketIONamespace socketNamespaceStoreController = this.socketServer.addNamespace(STORE_CONTROLLER);
+
+        socketNamespaceStoreController.addConnectListener(new ConnectListener() {
+
+			@Override
+			public void onConnect(SocketIOClient client) {
+				List<Store> stores;
+				try
+				{
+					stores = storeRepository.getStores();
+				}
+				catch(Exception e) 
+				{
+					return;
+				}
+				client.sendEvent(STORE_FETCH_EVENT, stores);
+			}
+		});
+    }
+
+	public SocketIONamespace getStoreNamespace()
+	{
+		return this.socketServer.getNamespace(STORE_CONTROLLER);
 	}
-	
+
+	public void broadcastStoreFetchEvent() throws Exception
+	{
+		List<Store> stores;
+		try
+		{
+			stores = storeRepository.getStores();
+		}
+		catch(Exception e) 
+		{
+			throw new Exception("Failed to get stores");
+		}
+
+		getStoreNamespace().getBroadcastOperations().sendEvent(STORE_FETCH_EVENT, stores);
+	}
 	
 }

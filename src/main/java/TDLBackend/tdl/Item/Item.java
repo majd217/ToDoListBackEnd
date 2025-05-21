@@ -2,10 +2,10 @@ package TDLBackend.tdl.Item;
 
 import java.util.Objects;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import TDLBackend.tdl.Store.Store;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
 import jakarta.persistence.*;
 
 @Entity(name = "item")
@@ -32,16 +32,16 @@ public class Item {
     @Column(name= "checked")
     private boolean checked;
     
-    
-    @ManyToOne(cascade = CascadeType.MERGE)
-    @JoinColumn(name = "storeid", referencedColumnName = "id")
-    private Store store;
+    @Column(name= "storeid")
+    @JsonIgnore
+    private int storeid;
 
-    Item(String label, boolean checked, Store storeid){
-            this.label = label;
-            this.checked = checked;
-            this.store = storeid;
-        }
+    Item(String label, boolean checked, int storeid)
+    {
+        this.label = label;
+        this.checked = checked;
+        this.storeid = storeid;
+    }
     
     public Integer getId() {
         return id;
@@ -55,12 +55,14 @@ public class Item {
         return checked;
     }
     
-    public Store getStore() {
-        return store;
+    @JsonIgnore
+    public int getStoreid() {
+        return this.storeid;
     }
-    
-    public void setStore(Store storeId) {
-        this.store = store;
+
+    @JsonProperty
+    public void setStoreid(int storeid) {
+        this.storeid = storeid;
     }
-    
+
 }

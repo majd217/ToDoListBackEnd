@@ -10,7 +10,8 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=1999
-
+    volumes:
+      - ./pg-data:/var/lib/postgresql/data
 
   backend:
     container_name: backend-container

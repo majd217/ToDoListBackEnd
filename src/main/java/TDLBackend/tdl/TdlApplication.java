@@ -1,19 +1,15 @@
 package TDLBackend.tdl;
 
-import org.springframework.boot.SpringApplication;
+import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import TDLBackend.tdl.Item.ItemRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import jakarta.annotation.PostConstruct;
-
-
-
+import org.springframework.boot.builder.SpringApplicationBuilder;
 
 @SpringBootApplication
 public class TdlApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(TdlApplication.class, args);
+		new SpringApplicationBuilder(TdlApplication.class)
+        .web(WebApplicationType.NONE).run(args);
 	}
 
 }

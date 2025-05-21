@@ -1,0 +1,55 @@
+{
+    "folders": [
+        {
+            "path": "."
+        }
+    ],
+    "settings": {
+        "taskExplorer.enabledTasks": {
+            "ant": false,
+            "composer": false,
+            "tsc": false,
+            "grunt": false,
+            "gulp": false,
+            "make": false,
+            "maven": false,
+            "npm": false,
+            "perl": false,
+            "pipenv": false,
+            "ruby": false,
+            "python": false,
+            "powershell": false,
+            "gradle": false,
+            "bash": false
+        },
+        "taskExplorer.exclude": [
+            "**/.vscode-test/**",
+            "**/Assets/**",
+            "**/bin/**",
+            "**/build/**",
+            "**/dist/**",
+            "**/doc/**",
+            "**/example/**",
+            "**/examples/**",
+            "**/ext/**",
+            "**/obj/**",
+            "**/out/**",
+            "**/output/**",
+            "**/packages/**",
+            "**/release/**",
+            "**/releases/**",
+            "**/samples/**",
+            "**/sdks/**",
+            "**/static/**",
+            "**/target/**",
+            "**/test/**",
+            "**/third_party/**",
+            "**/vendor/**",
+            "**/work/**",
+            "**/gradlew.bat",
+            "**/gradlew",
+            "**/gradlew-e"
+        ],
+        "java.configuration.updateBuildConfiguration": "interactive"
+    }
+}
