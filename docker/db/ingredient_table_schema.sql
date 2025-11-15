@@ -1,0 +1,4 @@
+sCREATE TABLE IF NOT EXISTS ingredient (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL
+);

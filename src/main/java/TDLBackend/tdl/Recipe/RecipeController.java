@@ -1,57 +1,94 @@
 package TDLBackend.tdl.Recipe;
 
-import TDLBackend.tdl.Item.Item;
-import TDLBackend.tdl.Meal.Meal;
-import TDLBackend.tdl.Meal.MealDate;
-import TDLBackend.tdl.Store.StoreController;
+import TDLBackend.tdl.Instruction.Instruction;
+import TDLBackend.tdl.RecipeIngredient.RecipeIngredient;
+//import TDLBackend.tdl.RecipeIngredient.RecipeIngredientRepository;
+import TDLBackend.tdl.Store.Store;
 import com.corundumstudio.socketio.AckRequest;
 import com.corundumstudio.socketio.SocketIOClient;
 import com.corundumstudio.socketio.SocketIONamespace;
 import com.corundumstudio.socketio.SocketIOServer;
+import com.corundumstudio.socketio.listener.ConnectListener;
 import com.corundumstudio.socketio.listener.DataListener;
+import jakarta.transaction.Transactional;
+import org.hibernate.mapping.Set;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
-
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 
+//TODO:
+//Refactor tables to use model normailzation 1. iNGREDIENTS SHOULD BE IN THEIR OWN TABLE.
+//Create a table for relation between recipe and ingredients
+//So each ingredient can be reused
+
+@Component
 public class RecipeController {
 	
 	@Autowired
 	RecipeRepository recipeRepository;
+//
+	private final SocketIOServer socketServer;
+	private final SocketIONamespace socketNamespaceRecipeController;
+	
+	private static final String RECIPE_CONTROLLER = "/recipe";
+	private static final String RECIPE_FETCH_RECIPE_EVENT = "fetch";
+	private static final String RECIPE_ADD_RECIPE_EVENT = "add";
+	private static final String RECIPE_UPDATE_RECIPE_EVENT = "update";
+	private static final String RECIPE_DELETE_RECIPE_EVENT = "delete";
 	
 	@Autowired
-	private SocketIOServer socketServer;
-	
-	private SocketIONamespace socketNamespaceRecipeController;
-	
-	private static String RECIPE_CONTROLLER = "/recipe";
-	
-	private static String RECIPE_FETCH_RECIPE_EVENT = "fetch";
-	private static String RECIPE_ADD_RECIPE_EVENT = "add";
-	private static String RECIPE_UPDATE_RECIPE_EVENT = "update";
-	private static String RECIPE_DELETE_RECIPE_EVENT = "delete";
-	
 	RecipeController(SocketIOServer socketServer) {
 		this.socketServer = socketServer;
 		this.socketNamespaceRecipeController = this.socketServer.addNamespace(RECIPE_CONTROLLER);
 		
-		// Add event listeners
-		socketNamespaceRecipeController.addEventListener(RECIPE_ADD_RECIPE_EVENT, RecipeEntity.class, addRecipe);
-		socketNamespaceRecipeController.addEventListener(RECIPE_DELETE_RECIPE_EVENT, (Class) List.class, deleteRecipe);
-		socketNamespaceRecipeController.addEventListener(RECIPE_UPDATE_RECIPE_EVENT, (Class) HashMap.class, updateRecipe);
+		socketNamespaceRecipeController.addEventListener(RECIPE_ADD_RECIPE_EVENT, RecipeEntity.class, createNewRecipe);
+		socketNamespaceRecipeController.addEventListener(RECIPE_DELETE_RECIPE_EVENT, RecipeEntity.class, deleteRecipe);
+		socketNamespaceRecipeController.addEventListener(RECIPE_UPDATE_RECIPE_EVENT, RecipeEntity.class, updateRecipe);
+		
+		socketNamespaceRecipeController.addConnectListener(new ConnectListener() {
+			@Override
+			public void onConnect(SocketIOClient client) {
+				List<RecipeEntity> recipes;
+				try
+				{
+					recipes = recipeRepository.fetchRecipes();
+				}
+				catch(Exception e)
+				{
+					return;
+				}
+				client.sendEvent(RECIPE_FETCH_RECIPE_EVENT, recipes);
+			}
+		});
 	}
-	
-	private DataListener<RecipeEntity> addRecipe = new DataListener<RecipeEntity>() {
+	private DataListener<RecipeEntity> findRecipeWithDetails = new DataListener<RecipeEntity>() {
 		@Override
 		public void onData(SocketIOClient client, RecipeEntity data, AckRequest ackSender) throws Exception {
 			try {
-				recipeRepository.createRecipe(data.getName(), data.getIngredients(), data.getInstructions());
+				recipeRepository.findWithDetailsById(data.getId());
+				broadcastRecipes();
 			} catch (Exception e) {
 				throw new Exception("Failed to create Recipe");
 			}
-			
+		}
+	};
+	//Creates template for recipe with name and id
+	//Instructions and ingredients should be initially empty
+	private DataListener<RecipeEntity> createNewRecipe = new DataListener<RecipeEntity>() {
+		@Override
+		public void onData(SocketIOClient client, RecipeEntity data, AckRequest ackSender) throws Exception {
+			try {
+				RecipeEntity recipe = new RecipeEntity(data.getName(), new ArrayList<>(), new ArrayList<>());
+				recipeRepository.save(recipe);
+				broadcastRecipes();
+			} catch (Exception e) {
+				throw new Exception("Failed to create Recipe");
+			}
 		}
 	};
 	private DataListener<RecipeEntity> deleteRecipe = new DataListener<RecipeEntity>() {
@@ -59,43 +96,38 @@ public class RecipeController {
 		public void onData(SocketIOClient client, RecipeEntity data, AckRequest ackSender) throws Exception {
 			try {
 				recipeRepository.deleteRecipe(data.getId());
+				broadcastRecipes();
 			} catch (Exception e) {
 				throw new Exception("Failed to delete Recipe");
 			}
-			
 		}
 	};
 	
+	//update recipe (add instructions and ingredients)
 	private DataListener<RecipeEntity> updateRecipe = new DataListener<RecipeEntity>() {
 		@Override
 		public void onData(SocketIOClient client, RecipeEntity data, AckRequest ackSender) throws Exception {
+			
 			try {
-				recipeRepository.updateRecipe(data.getId(), data.getName(), data.getIngredients(), data.getInstructions());
+				RecipeEntity recipe = recipeRepository.fetchRecipe(data.getId());
+				recipe.setInstructions(data.getInstructions());
+				recipe.setIngredients(data.getIngredients());
+				recipe.setName(data.getName());
+				recipeRepository.save(recipe);
+				broadcastRecipes();
 			} catch (Exception e) {
 				throw new Exception("Failed to update Recipe");
 			}
 		}
 	};
 	
-	private DataListener<RecipeEntity> fetchRecipes = new DataListener<RecipeEntity>() {
-		@Override
-		public void onData(SocketIOClient client, RecipeEntity data, AckRequest ackSender) throws Exception {
-			List<RecipeEntity> recipes;
-			
-			try {
-				recipes = recipeRepository.fetchRecipes();
-				client.sendEvent(RECIPE_FETCH_RECIPE_EVENT, recipes);
-				broadcastRecipes(recipes);
-				
-			} catch (Exception e) {
-				throw new Exception("Failed to fetch Recipes");
-			}
+	private void broadcastRecipes() throws Exception {
+		List<RecipeEntity> recipes;
+		try {
+			recipes = recipeRepository.fetchRecipes();
+		} catch (Exception e) {
+			throw new Exception("Failed to fetch Recipes");
 		}
-	};
-	
-	private void broadcastRecipes(List<RecipeEntity> recipes) throws Exception {
 		this.socketNamespaceRecipeController.getBroadcastOperations().sendEvent(RECIPE_FETCH_RECIPE_EVENT, recipes);
 	}
-	
-	
 }

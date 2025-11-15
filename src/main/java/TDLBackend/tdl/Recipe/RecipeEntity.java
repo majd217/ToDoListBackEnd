@@ -1,8 +1,13 @@
 package TDLBackend.tdl.Recipe;
 
+import TDLBackend.tdl.RecipeIngredient.RecipeIngredient;
+import TDLBackend.tdl.ingredient.IngredientEntity;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
+import TDLBackend.tdl.Instruction.Instruction;
 
-import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "recipe")
@@ -12,55 +17,60 @@ public class RecipeEntity {
 			sequenceName = "recipe_id_seq",
 			allocationSize = 1
 	)
-	
 	@Id
 	@GeneratedValue(
 			strategy = GenerationType.SEQUENCE,
 			generator = "recipe_id_seq"
 	)
-	@Column
+	@Column(name = "id")
 	private Integer id;
-	
 	@Column(name = "name")
 	private String name;
 	
-	@Column(name = "instructions")
-	private ArrayList<String> instructions;
+	@OneToMany(cascade = CascadeType.ALL, mappedBy = "recipeId", fetch = FetchType.EAGER)
+	@OrderBy("stepNumber ASC")
+	private List<Instruction> instructions;
+	@OneToMany(cascade = CascadeType.ALL, mappedBy = "recipeId", fetch = FetchType.EAGER)
+	private List<RecipeIngredient> ingredients;
+	RecipeEntity(){}
+	public RecipeEntity(String name, List<RecipeIngredient> ingredients, List<Instruction> instructions){
+		this.name = name;
+		this.ingredients = ingredients;
+		this.instructions = instructions;
+	}
 	
-	@Column(name = "ingredients")
-	private ArrayList<String> ingredients;
+	public RecipeEntity(int id, String name, List<RecipeIngredient> ingredients, List<Instruction> instructions){
+		this.id = id;
+		this.name = name;
+		this.ingredients = ingredients;
+		this.instructions = instructions;
+	}
 	
 	public Integer getId() {
 		return id;
 	}
-	
 	public void setId(Integer id) {
 		this.id = id;
 	}
-	
-	public ArrayList<String> getInstructions() {
-		return instructions;
-	}
-	
-	public void setInstructions(ArrayList<String> instructions) {
-		this.instructions = instructions;
-	}
-	
 	public String getName() {
 		return name;
 	}
-	
 	public void setName(String name) {
 		this.name = name;
 	}
+	public List<Instruction> getInstructions() {
+		return instructions;
+	}
 	
-	public ArrayList<String> getIngredients() {
+	public void setInstructions(List<Instruction> instructions) {
+		this.instructions = instructions;
+	}
+	
+	public List<RecipeIngredient> getIngredients() {
 		return ingredients;
 	}
 	
-	public void setIngredients(ArrayList<String> ingredients) {
+	public void setIngredients(List<RecipeIngredient> ingredients) {
 		this.ingredients = ingredients;
 	}
-	
-	
 }

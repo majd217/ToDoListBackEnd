@@ -29,10 +29,9 @@ public class MealController {
 	@Autowired
 	MealRepository mealRepository;
 
-    @Autowired
-    private SocketIOServer socketServer;
+    private final SocketIOServer socketServer;
 
-    private SocketIONamespace socketNamespaceMealController;
+    private final SocketIONamespace socketNamespaceMealController;
 
     MealController(SocketIOServer socketServer){
         this.socketServer = socketServer;
